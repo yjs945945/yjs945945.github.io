@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+<script src="https://d3js.org/d3.v4.js"></script>
+<script src="https://rawgit.com/susielu/d3-annotation/master/d3-annotation.min.js"></script>
+<body>
+<h1>Why do some countries win more Olympic medals?</h1>
+Let's explore data from year 2000 Syndey Olympic to 2020 Tokyo Olympic. <br/><br/><br/>
+
+<!-- Add 2 buttons -->
+<button onclick="InitBarChart()">Explore Medal Counts for Host Countries</button>
+<button onclick="InitScatterPlot(1)">Explore Medal Counts with Participated Athelete Counts</button>
+<button onclick="InitScatterPlot(2)">Explore GDP Per Capita Impact on Medal Counts</button>
+<br/>
+<br/>
+<br/>
+<h2 id="conclusion" hidden="hidden">Observation ???</h2>
+<br/>
+<!-- Initialize a select button -->
+<select id="selectButton" hidden="hidden" fill="yellow"></select>
+<br/>
+<!-- Create a div where the graph will take place -->
+<svg id="myPlot"></svg>
+
+
+
+
+<script>  
+
+// set the dimensions and margins of the graph
+var margin = {top: 10, right: 30, bottom: 40, left: 70},
+    width = 900 - margin.left - margin.right,
+    height = 800 - margin.top - margin.bottom;
+
+var barChartAnnotationCoord = {
+  "Australia": { x: 100, y: 170, dy: -100, dx: 100, year: 2000 },
+  "Greece": { x: 220, y: 350, dy: -100, dx: 100, year: 2004},
+  "China": { x: 340, y: 186, dy: -100, dx: 100, year: 2008},
+  "UK": { x: 460, y: 250, dy: -100, dx: 100, year: 2012},
+  "Brazil": { x: 580, y: 315, dy: -100, dx: -100, year: 2016},
+  "Japan": { x: 700, y: 185, dy: -100, dx: -100, year: 2020}
+}
+
+var colorByYear = {
+  2000: "Red",
+  2004: "Orange",
+  2008: "Green",
+  2012: "steelblue",
+  2016: "Purple",
+  2020: "Black"
+}
+
+// scenes:
+// 0-barchart for host countries
+// 1-scatter plot for participant counts vs. medal counts
+var scene = 0;
+var AllYears = "From 2000 to 2020";
+var DefaultCountryButton = " - Select Hosting Country -"
+var DefaultYearButton = " - Select an Olympic Year -"
+
+// When the button is changed, run the updateChart function
+d3.select("#selectButton").on("change", function(d) {
+    console.log("onchange");
+    // recover the option that has been chosen
+    var selectedOption = d3.select(this).property("value")
+
+    console.log(selectedOption)
+
+    // run the updateChart function with this selected option
+    if (scene == 0) {
+      UpdateBarChart(selectedOption)
+    }
+    else {
+      UpdateScatterPlot(selectedOption)
+    }
+  })
+
+function InitSVG(width, height) {
+  console.log("InitSVG called...");
+
+  var svg = d3.select("#myPlot");
+  svg.selectAll("*").remove();
+
+  // set the width and height
+  d3.select("#myPlot")
+    .attr("width", width)
+    .attr("height", height)
+
+  // append the svg object to the body of the page
+  var svg = d3.select("#myPlot")
+    .append("svg")
+    .append("g")
+      .attr("transform",
+            "translate(" + margin.left + "," + margin.top + ")");
+  d3.select("#selectButton")
+    .attr('hidden', null)
+}
+
+function InitBarChart() {
+  console.log("initBarChart called...");
+
+  scene = 0;
+
+  InitSVG("800", "800");
+
+  // country groups
+  var countryGroups = [DefaultCountryButton, "Australia (2000)", "Greece (2004)", "China (2008)", "UK (2012)", "Brazil (2016)", "Japan (2020)"]
+
+  // check if option is already populated
+  // skip populating if it's not empty
+  var isempty = d3.select("#selectButton")
+    .selectAll('option')
+    .empty()
+
+  if (!isempty) {
+    ClearSelectButtonOptions();
+  }
+
+  d3.select("#selectButton")
+    .selectAll('myOptions')
+    .data(countryGroups)
+    .enter()
+    .append('option')
+    .text(function (d) { return d; }) // text showed in the menu
+    .attr("value", function (d) { return d; }) // corresponding value returned by the button
+
+  // Load bar chart
+  var element = document.getElementById("selectButton")
+  var event = new Event('change');
+  element.dispatchEvent(event);
+}
+
+function ClearSelectButtonOptions() {
+  // ScatterPlot does not use selectButton
+  // if not empty - rest
+  d3.select("#selectButton")
+    .selectAll('option')
+    .remove()
+}
+
+function InitScatterPlot(sceneType) {
+  console.log("initScatterPlot called...");
+  scene = sceneType
+
+  InitSVG("800", "800");
+
+  // year groups
+  // TODO: add all year
+  var yearGroups = scene === 1 ? 
+    [DefaultYearButton, AllYears, "2000", "2004", "2008", "2012", "2016", "2020"] :
+    [DefaultYearButton, "2000", "2004", "2008", "2012", "2016", "2020"];
+
+  // check if option is already populated
+  // skip populating if it's not empty
+  var isempty = d3.select("#selectButton")
+    .selectAll('option')
+    .empty()
+
+  if (!isempty) {
+    ClearSelectButtonOptions()
+  }
+
+  d3.select("#selectButton")
+    .selectAll('myOptions')
+    .data(yearGroups)
+    .enter()
+    .append('option')
+    .text(function (d) { return d; }) // text showed in the menu
+    .attr("value", function (d) { return d; }); // corresponding value returned by the button
+  
+  // Load  chart
+  var element = document.getElementById("selectButton")
+  var event = new Event('change');
+  element.dispatchEvent(event);
+}
+
+
+// A function that update the chart
+function UpdateBarChart(selectedGroup) {
+  // Parse the Data
+  d3.csv("https://raw.githubusercontent.com/yjs945945/datavisualization-data/main/dummy_olympicMedalsData.csv", function(data) {
+
+
+  // clear previous annotation
+  d3.select("#annotation").remove();
+  d3.selectAll("#tooltip").remove();
+
+  d3.select("#conclusion")
+    .attr('hidden', null)
+
+  // List of groups = species here = value of the first column called group -> I show them on the X axis
+  var years = d3.map(data, function(d){return(d.year)}).keys()
+
+  // Add X axis
+  var x = d3.scaleBand()
+      .domain(years)
+      .range([0, width])
+      .padding([0.5]);
+  var svg = d3.select("#myPlot").select("svg").select("g")
+  svg.append("g")
+    .attr("transform", "translate(0," + height + ")")
+    .call(d3.axisBottom(x).tickSize(0));
+  
+  // Add legend for X
+    svg.append("text")
+        .attr("transform", "translate(" + (width / 2) + " ," + (height + margin.bottom) + ")")
+        .style("text-anchor", "middle")
+        .text("Year");
+
+  // Add Y axis
+  var y = d3.scaleLinear()
+    .domain([0, 800])
+    .range([ height, 0 ]);
+  svg.append("g")
+    .call(d3.axisLeft(y));
+  
+    // Add legend for Y
+  svg.append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 0 - margin.left)
+      .attr("x",0 - (height / 2))
+      .attr("dy", "1em")
+      .style("text-anchor", "middle")
+      .text("Medal Count");
+  
+  var conclusion = ""
+  if (selectedGroup != DefaultCountryButton) {
+
+    conclusion = "Key finding: being a hosting contry has a positive impact on the total number of Olympic medals!!"
+    // Create new data with the selection?
+    var country = selectedGroup.split(' ')[0]
+    var dataFilter = data.map(function(d){return {year: d.year, value:d[country]} })  
+
+    var tooltip = d3.select("body")
+      .append("div")
+      .attr('id', "tooltip")
+      .style("position", "absolute")
+      .style("visibility", "visible")
+
+    // create rect with filtered data
+    var u = svg.selectAll("rect")
+      .data(dataFilter)
+    // update bars
+    u.enter()
+      .append("rect")
+      .merge(u)
+        .attr("x", function(d) { return x(d.year); })
+        .attr("y", function(d) { return y(d.value); })
+        .attr("width", x.bandwidth())
+        .attr("height", function(d) { console.log(d); return height - y(d.value); })
+        .attr("fill", function(d) { return colorByYear[d.year]})
+        .on("mouseover", function(d) { return tooltip.style("visibility", "visible").html("<p>MedalCount:"+d.value+"</p>")})
+        .on("mousemove", function(){ return tooltip.style("top", (event.pageY)+"px").style("left",(event.pageX+12)+"px");})
+        .on("mouseout", function() { return tooltip.style("visibility", "hidden")})
+    
+    const annotations = [
+    {
+    note: {
+      label: "The year " + country + " was the hosting country."
+    },
+    x: barChartAnnotationCoord[country].x,
+    y: barChartAnnotationCoord[country].y,
+    dy: barChartAnnotationCoord[country].dy,
+    dx: barChartAnnotationCoord[country].dx
+  }]
+  // Add annotation to the chart
+  const makeAnnotations = d3.annotation().annotations(annotations)
+  var g = svg.append("g").attr('id', "annotation")
+  g.call(makeAnnotations)
+
+  }
+  else {
+    conclusion = "Pick a hosting country to start exploring..."
+    svg.selectAll('rect')
+    .remove()
+  }
+
+  d3.select("#conclusion")
+    .text(conclusion)
+
+  })
+}
+
+function UpdateScatterPlot(yearFilter) {
+ InitSVG("800", "800");
+  d3.csv("https://raw.githubusercontent.com/yjs945945/datavisualization-data/main/participation.csv", function(data) {
+
+    d3.select("#conclusion")
+    .attr('hidden', null)
+    d3.selectAll("#tooltip").remove();
+
+    // X Axis
+    var x = scene === 1 ? d3.scaleLinear() : d3.scaleSqrt();
+
+    x = x.domain([0, 160])
+      .range([0, width]);
+    var svg = d3.select("#myPlot").select("svg").select("g")
+    svg.append("g")
+      .attr("transform", "translate(0," + height + ")")
+      .call(d3.axisBottom(x).tickSize(0));
+    
+      // add legend for X
+    svg.append("text")
+      .attr("transform", "translate(" + (width / 2) + " ," + (height + margin.bottom) + ")")
+      .style("text-anchor", "middle")
+      .text("Medal Count");
+    
+    var dataFilter = null;
+    if (yearFilter == AllYears) {
+      dataFilter = data;
+    }
+    else if (yearFilter !== DefaultYearButton) {
+      dataFilter = data.filter(function(d) {
+        return d.year === yearFilter && (scene != 2 || d.gdppercapita != "#N/A" )
+      })
+    }
+    
+    // Y Axis
+    var defaultYMax = scene == 1 ? 600 : 100000;
+    yMax = dataFilter == null ? defaultYMax : d3.max(dataFilter, function(d) { return scene === 1 ? parseInt(d.atheletecount) : parseFloat(d.gdppercapita); })*1.1;
+    var y = d3.scaleLinear()
+      .domain([0, yMax])
+      .range([ height, 0]);
+    svg.append("g")
+      .call(d3.axisLeft(y));
+
+    var YLegend = scene == 1 ? "Participated Athelete Count" : "GDP Per Capita"
+      svg.append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 0 - margin.left)
+      .attr("x",0 - (height / 2))
+      .attr("dy", "1em")
+      .style("text-anchor", "middle")
+      .text(YLegend);
+    
+    var tooltip = d3.select("body")
+      .append("div")
+      .attr('id', "tooltip")
+      .style("position", "absolute")
+      .style("visibility", "visible")
+
+    // Clear dots
+    svg.selectAll('circle')
+    .remove()
+
+    // Dots
+    var conclusion = null
+    if (dataFilter != null) {
+    svg.append('g')
+      .selectAll("dot")
+      .data(dataFilter).enter()
+      .append("circle")
+      .attr("cx", function (d) { return x(d.totalmedalcount) } )
+      .attr("cy", function (d) { return scene === 1 ? y(d.atheletecount) : y(d.gdppercapita)} )
+      .attr("r", 5)
+      .style("fill", function(d) { return colorByYear[d.year]})
+      .on("mouseover", function(d) { ytooltip = scene == 1 ? "AtheleteCount:"+d.atheletecount : "GDP Per Capita:"+d.gdppercapita; return tooltip.style("visibility", "visible").html("<p>"+d.country+"</br>Year:"+d.year+"</br>MedalCount:"+d.totalmedalcount+ "</br>"+ytooltip+"</p>")})
+      .on("mousemove", function(){ return tooltip.style("top", (event.pageY)+"px").style("left",(event.pageX+12)+"px");})
+      .on("mouseout", function() { return tooltip.style("visibility", "hidden")})
+
+    conclusion = scene == 1 ? "Key finding: total participants of a country and its medal count has a positive correlation!!" : "Key finding: GDP per capita does not seem to correlate with a country's Olympic medal count :("
+    }
+    else {
+      conclusion = "Please select an Olympic year or a year range to start exploring..."
+    }
+      d3.select("#conclusion")
+      .text(conclusion)
+  })
+}
+
+</script>
+
+</body>
+</html>
+
