@@ -7,9 +7,9 @@
 Let's explore data from year 2000 Syndey Olympic to 2020 Tokyo Olympic. <br/><br/><br/>
 
 <!-- Add 2 buttons -->
-<button onclick="InitBarChart()">Explore Medal Counts for Host Countries</button>
-<button onclick="InitScatterPlot(1)">Explore Medal Counts with Participated Athelete Counts</button>
-<button onclick="InitScatterPlot(2)">Explore GDP Per Capita Impact on Medal Counts</button>
+<button id="participationButton" onclick="InitScatterPlot(1)">Explore Medal Counts with Participated Athelete Counts</button>
+<button id="gdpButton" onclick="InitScatterPlot(2)">Explore GDP Per Capita Impact on Medal Counts</button>
+<button id="hostingCountryButton" onclick="InitBarChart()">Explore Medal Counts for Host Countries</button>
 <br/>
 <br/>
 <br/>
@@ -54,7 +54,7 @@ var colorByYear = {
 // 1-scatter plot for participant counts vs. medal counts
 var scene = 0;
 var AllYears = "From 2000 to 2020";
-var DefaultCountryButton = " - Select Hosting Country -"
+var DefaultCountryButton = " - Select a Host Country -"
 var DefaultYearButton = " - Select an Olympic Year -"
 
 // When the button is changed, run the updateChart function
@@ -97,9 +97,8 @@ function InitSVG(width, height) {
 
 function InitBarChart() {
   console.log("initBarChart called...");
-
   scene = 0;
-
+  HighlightOneButton("hostingCountryButton")
   InitSVG("800", "800");
 
   // country groups
@@ -137,9 +136,28 @@ function ClearSelectButtonOptions() {
     .remove()
 }
 
+function HighlightOneButton(buttonName) {
+  var button = document.getElementById("participationButton");
+  button.style.borderColor = "buttonborder";
+  button.style.borderWidth = "2px"
+  button = document.getElementById("gdpButton");
+  button.style.borderColor = "buttonborder";
+  button.style.borderWidth = "2px"
+  button = document.getElementById("hostingCountryButton");
+  button.style.borderColor = "buttonborder";
+  button.style.borderWidth = "2px"
+  
+
+  document.getElementById(buttonName).style.borderColor = "orange";
+  document.getElementById(buttonName).style.borderWidth = "4px"
+}
+
 function InitScatterPlot(sceneType) {
   console.log("initScatterPlot called...");
   scene = sceneType
+
+  // Rest and change border color
+  scene == 1 ? HighlightOneButton("participationButton") : HighlightOneButton("gdpButton");
 
   InitSVG("800", "800");
 
@@ -182,6 +200,7 @@ function UpdateBarChart(selectedGroup) {
 
   // clear previous annotation
   d3.select("#annotation").remove();
+  d3.select("#selectionAnnotation").remove();
   d3.selectAll("#tooltip").remove();
 
   d3.select("#conclusion")
@@ -225,7 +244,7 @@ function UpdateBarChart(selectedGroup) {
   var conclusion = ""
   if (selectedGroup != DefaultCountryButton) {
 
-    conclusion = "Key finding: being a hosting contry has a positive impact on the total number of Olympic medals!!"
+    conclusion = "Key finding: being a host contry has a positive impact on the total number of Olympic medals!!"
     // Create new data with the selection?
     var country = selectedGroup.split(' ')[0]
     var dataFilter = data.map(function(d){return {year: d.year, value:d[country]} })  
@@ -255,7 +274,7 @@ function UpdateBarChart(selectedGroup) {
     const annotations = [
     {
     note: {
-      label: "The year " + country + " was the hosting country."
+      label: "This is the year " + country + " was the host country."
     },
     x: barChartAnnotationCoord[country].x,
     y: barChartAnnotationCoord[country].y,
@@ -269,9 +288,33 @@ function UpdateBarChart(selectedGroup) {
 
   }
   else {
-    conclusion = "Pick a hosting country to start exploring..."
-    svg.selectAll('rect')
-    .remove()
+    conclusion = "Does a country get more medals when it's the host country than other years? Let's explore by selecting a host country below."
+    svg.selectAll('rect').remove()
+
+    const annotations = [
+    {
+      note: {
+        label: "Pick a host country to start exploring...",
+      },
+      connector: {
+      end: "arrow",        // none, or arrow or dot
+      type: "curve",       // Line or curve
+      points: 4,           // Number of break in the curve
+      lineType : "verticle"
+    },
+      color: ["red"],
+      x: 100,
+      y: 0,
+      dy: 170,
+      dx: 170
+    }
+  ]
+
+// Add annotation to the chart
+  // Add annotation to the chart
+  const makeAnnotations = d3.annotation().annotations(annotations)
+  var g = svg.append("g").attr('id', "selectionAnnotation")
+  g.call(makeAnnotations)
   }
 
   d3.select("#conclusion")
@@ -287,6 +330,7 @@ function UpdateScatterPlot(yearFilter) {
     d3.select("#conclusion")
     .attr('hidden', null)
     d3.selectAll("#tooltip").remove();
+    d3.select("#selectionAnnotation").remove();
 
     // X Axis
     var x = scene === 1 ? d3.scaleLinear() : d3.scaleSqrt();
@@ -360,13 +404,43 @@ function UpdateScatterPlot(yearFilter) {
     conclusion = scene == 1 ? "Key finding: total participants of a country and its medal count has a positive correlation!!" : "Key finding: GDP per capita does not seem to correlate with a country's Olympic medal count :("
     }
     else {
-      conclusion = "Please select an Olympic year or a year range to start exploring..."
+      if (scene == 1) {
+        conclusion = "Instinctively, a country would win more medals if has more athletes attending the Olympics. Let's explore by selecting a year or a range of year below."
+      }
+      else {
+        conclusion = "Do more developed countries get more medals? Let's explore by selecting a year or a range of year below.";
+      }
+      const annotations = [
+    {
+      note: {
+        label: "Please select an Olympic year or a year range to start exploring...",
+      },
+      connector: {
+      end: "arrow",        // none, or arrow or dot
+      type: "curve",       // Line or curve
+      points: 4,           // Number of break in the curve
+      lineType : "verticle"
+    },
+      color: ["red"],
+      x: 100,
+      y: 0,
+      dy: 170,
+      dx: 170
+    }
+  ]
+
+// Add annotation to the chart
+  // Add annotation to the chart
+  const makeAnnotations = d3.annotation().annotations(annotations)
+  var g = svg.append("g").attr('id', "selectionAnnotation")
+  g.call(makeAnnotations)
     }
       d3.select("#conclusion")
       .text(conclusion)
   })
 }
 
+InitScatterPlot(1)
 </script>
 
 </body>
